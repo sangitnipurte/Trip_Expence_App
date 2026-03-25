@@ -289,7 +289,7 @@ select.fc{cursor:pointer;}
   </div>
   <div class="stats-grid">
     <div class="sc sc1"><div class="sc-ico i1">💸</div><div class="sc-lbl">Total Spent</div><div class="sc-val" id="sv1">₹0</div><div class="sc-sub" id="ss1">0 expenses</div></div>
-    <div class="sc sc2"><div class="sc-ico i2">👤</div><div class="sc-lbl">Per Person</div><div class="sc-val" id="sv2">₹0</div><div class="sc-sub">equal share</div></div>
+    <div class="sc sc2"><div class="sc-ico i2">👤</div><div class="sc-lbl">Per Person</div><div class="sc-val" id="sv2">₹0</div><div class="sc-sub">avg actual spend</div></div>
     <div class="sc sc3"><div class="sc-ico i3">⚖️</div><div class="sc-lbl">Unsettled</div><div class="sc-val" id="sv3">₹0</div><div class="sc-sub" id="ss3">0 pending</div></div>
     <div class="sc sc4"><div class="sc-ico i4">🏆</div><div class="sc-lbl">Top Payer</div><div class="sc-val" id="sv4">—</div><div class="sc-sub" id="ss4">no payments</div></div>
   </div>
@@ -338,7 +338,7 @@ select.fc{cursor:pointer;}
       <div class="donut-c"><div class="dv" id="d-total">₹0</div><div class="dl">Total</div></div></div>
       <div class="leg" id="cat-leg"></div></div>
     <div class="rp2"><div class="rpt">📅 Daily Spending</div><div class="day-bars" id="day-bars"></div></div>
-    <div class="rp2" style="grid-column:1/-1"><div class="rpt">💰 Paid per Person</div><div id="per-person"></div></div>
+    <div class="rp2" style="grid-column:1/-1"><div class="rpt">💰 Spent per Person</div><div id="per-person"></div></div>
   </div>
 </div>
 </div>
@@ -618,8 +618,21 @@ function renderStats(){
   const tot=realExp.reduce((a,e)=>a+parseFloat(e.amount),0);
   document.getElementById('sv1').textContent='₹'+tot.toLocaleString();
   document.getElementById('ss1').textContent=realExp.length+' expense'+(realExp.length!==1?'s':'');
-  const n=(activeTrip.members||[]).length;
-  document.getElementById('sv2').textContent=n?'₹'+Math.round(tot/n).toLocaleString():'₹0';
+
+  // Per person = actual amount each member owes based on splits (not simple tot/n)
+  const memberSpend = {};
+  (activeTrip.members||[]).forEach(m => memberSpend[m.name] = 0);
+  realExp.forEach(e => {
+    Object.entries(e.splits||{}).forEach(([member, amt]) => {
+      if(member in memberSpend) memberSpend[member] += parseFloat(amt);
+    });
+  });
+  const memberCount = (activeTrip.members||[]).length;
+  const spendVals = Object.values(memberSpend);
+  const avgPerPerson = spendVals.length ? spendVals.reduce((a,v)=>a+v,0) / spendVals.length : 0;
+  document.getElementById('sv2').textContent = memberCount ? '₹'+Math.round(avgPerPerson).toLocaleString() : '₹0';
+  document.getElementById('sv2').title = Object.entries(memberSpend).map(([n,v])=>n+': ₹'+Math.round(v)).join(' | ');
+
   const paid={};
   realExp.forEach(e=>paid[e.payer]=(paid[e.payer]||0)+parseFloat(e.amount));
   let top=null,ta=0;
@@ -732,12 +745,25 @@ function renderReports(){
   const days=Object.entries(daily).sort((a,b)=>a[0].localeCompare(b[0]));
   const maxD=Math.max(...days.map(d=>d[1]),1);
   document.getElementById('day-bars').innerHTML=days.length?days.map(([d,v])=>{const h=Math.max((v/maxD)*95,4);const l=fd(d);return `<div class="dbc"><div class="dbv">${v>=1000?(v/1000).toFixed(1)+'k':v}</div><div class="dbf" style="height:${h}px"></div><div class="dbl">${l}</div></div>`}).join(''):'<div style="color:var(--muted);font-size:13px;align-self:center;width:100%;text-align:center">No data yet</div>';
-  const paid={};
-  (activeTrip?.members||[]).forEach(m=>paid[m.name]=0);
-  tripExp.forEach(e=>paid[e.payer]=(paid[e.payer]||0)+parseFloat(e.amount));
-  const maxP=Math.max(...Object.values(paid),1);
-  document.getElementById('per-person').innerHTML=Object.values(paid).some(v=>v>0)?
-    (activeTrip?.members||[]).map(m=>{const v=paid[m.name]||0;const w=(v/maxP*100).toFixed(1);return `<div class="pbr"><div class="pbn">${m.name}</div><div class="pbt"><div class="pbf" style="width:${w}%;background:${m.color}40;border-right:3px solid ${m.color}"></div></div><div class="pbv">₹${v.toLocaleString()}</div></div>`}).join(''):
+  // Spent per person — based on actual split amounts, not who paid the bill
+  const memberSpend = {};
+  (activeTrip?.members||[]).forEach(m => memberSpend[m.name] = 0);
+  tripExp.forEach(e => {
+    Object.entries(e.splits||{}).forEach(([member, amt]) => {
+      if(member in memberSpend) memberSpend[member] += parseFloat(amt);
+    });
+  });
+  const maxP = Math.max(...Object.values(memberSpend), 1);
+  document.getElementById('per-person').innerHTML = Object.values(memberSpend).some(v=>v>0) ?
+    (activeTrip?.members||[]).map(m => {
+      const v = memberSpend[m.name] || 0;
+      const w = (v / maxP * 100).toFixed(1);
+      return `<div class="pbr">
+        <div class="pbn">${m.name}</div>
+        <div class="pbt"><div class="pbf" style="width:${w}%;background:${m.color}40;border-right:3px solid ${m.color}"></div></div>
+        <div class="pbv">₹${Math.round(v).toLocaleString()}</div>
+      </div>`;
+    }).join('') :
     '<div style="color:var(--muted);font-size:13px;text-align:center">No data yet</div>';
 }
 
