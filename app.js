@@ -1,5 +1,5 @@
 // ── CONSTANTS ──────────────────────────────────────────────
-const API = 'http://localhost:5000/api';
+const API = 'https://trip-expence-app.onrender.com/api';
 const AVCOLS = ['#e85d26','#2e7d6b','#5b5bd6','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#059669','#ea580c'];
 const CICONS = { food: '🍽️', transport: '🚗', hotel: '🏨', activity: '🎯', other: '📦' };
 const CLBLS  = { food: 'Food', transport: 'Transport', hotel: 'Hotel', activity: 'Activity', other: 'Other' };
