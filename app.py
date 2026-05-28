@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory
-import json, os
+import sqlite3, json, os
 
 app = Flask(__name__, static_folder='.')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+DB = '/data/tripexpense.db'
 
 # ── CORS helper ──────────────────────────────────────────────
 def cors(response):
